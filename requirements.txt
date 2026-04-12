@@ -1,0 +1,21 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9         # Required for UploadFile support in FastAPI
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Anthropic
+anthropic==0.34.2
+
+# Supabase
+supabase==2.7.4
+
+# PDF support
+pdf2image==1.17.0               # Requires poppler — see README
+Pillow==10.4.0                  # Image processing
+
+# Dev / testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2                   # For FastAPI TestClient
+python-dotenv==1.0.1
