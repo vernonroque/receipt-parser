@@ -7,9 +7,6 @@ pydantic-settings==2.5.2
 # Anthropic
 anthropic==0.34.2
 
-# Supabase
-supabase==2.7.4
-
 # PDF support
 pdf2image==1.17.0               # Requires poppler — see README
 Pillow==10.4.0                  # Image processing

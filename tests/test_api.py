@@ -5,6 +5,8 @@ from app.main import app
 
 client = TestClient(app)
 
+API_KEY = "test-api-key"
+
 
 # ---- /health ----
 
@@ -21,31 +23,40 @@ def test_parse_requires_auth():
     assert res.status_code in (401, 403, 422)
 
 
+def test_parse_rejects_bad_key():
+    res = client.post(
+        "/api/parse",
+        files={"file": ("test.txt", b"hello", "text/plain")},
+        headers={"Authorization": "Bearer wrong-key"},
+    )
+    assert res.status_code == 401
+
+
 def test_parse_rejects_unsupported_type():
-    with patch("app.services.auth_middleware.get_supabase") as mock_sb:
-        mock_user = MagicMock()
-        mock_user.user.id = "test-user-id"
-        mock_sb.return_value.auth.get_user.return_value = mock_user
+    with patch("app.core.config.settings") as mock_settings:
+        mock_settings.API_KEY = API_KEY
+        mock_settings.MAX_FILE_SIZE_MB = 10
+        mock_settings.MAX_PDF_PAGES = 10
 
         res = client.post(
             "/api/parse",
             files={"file": ("test.txt", b"hello", "text/plain")},
-            headers={"Authorization": "Bearer fake-jwt"},
+            headers={"Authorization": f"Bearer {API_KEY}"},
         )
         assert res.status_code == 415
 
 
 def test_parse_rejects_large_file():
-    with patch("app.services.auth_middleware.get_supabase") as mock_sb:
-        mock_user = MagicMock()
-        mock_user.user.id = "test-user-id"
-        mock_sb.return_value.auth.get_user.return_value = mock_user
+    with patch("app.core.config.settings") as mock_settings:
+        mock_settings.API_KEY = API_KEY
+        mock_settings.MAX_FILE_SIZE_MB = 10
+        mock_settings.MAX_PDF_PAGES = 10
 
         big_file = b"x" * (11 * 1024 * 1024)  # 11MB
         res = client.post(
             "/api/parse",
             files={"file": ("big.jpg", big_file, "image/jpeg")},
-            headers={"Authorization": "Bearer fake-jwt"},
+            headers={"Authorization": f"Bearer {API_KEY}"},
         )
         assert res.status_code == 413
 

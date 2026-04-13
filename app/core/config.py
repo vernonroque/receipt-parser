@@ -6,9 +6,8 @@ class Settings(BaseSettings):
     # Anthropic
     ANTHROPIC_API_KEY: str
 
-    # Supabase
-    SUPABASE_URL: str
-    SUPABASE_SERVICE_ROLE_KEY: str  # Server-side only — never expose to client
+    # Auth
+    API_KEY: str
 
     # App
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]

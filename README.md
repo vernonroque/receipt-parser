@@ -2,7 +2,7 @@
 
 Upload an image or PDF receipt/invoice → get structured JSON back with merchant info, line items, and totals.
 
-Built with **FastAPI**, **Claude Vision API**, and **Supabase Auth**.
+Built with **FastAPI** and **Claude Vision API**.
 
 ---
 
@@ -10,7 +10,7 @@ Built with **FastAPI**, **Claude Vision API**, and **Supabase Auth**.
 
 - 📄 Parses JPEG, PNG, WEBP images and multi-page PDFs
 - 🧠 Claude vision model extracts merchant, line items, totals, tax, tip, currency
-- 🔐 Supabase Auth (Google OAuth + magic link) + API key management
+- 🔐 Static API key authentication via `Authorization: Bearer` header
 - 🚀 Deploy-ready for Railway (poppler included via nixpacks)
 
 ---
@@ -22,22 +22,17 @@ receipt-parser/
 ├── app/
 │   ├── main.py                  # FastAPI app + middleware setup
 │   ├── api/
-│   │   ├── parse.py             # POST /api/parse — main upload endpoint
-│   │   ├── auth.py              # POST /auth/verify — token verification
-│   │   └── keys.py              # GET/POST/DELETE /keys — API key management
+│   │   └── parse.py             # POST /api/parse — main upload endpoint
 │   ├── core/
-│   │   ├── config.py            # Environment variable settings
-│   │   └── supabase.py          # Supabase client singleton
+│   │   └── config.py            # Environment variable settings
 │   ├── models/
-│   │   └── schemas.py           # Pydantic models (ParsedReceipt, APIKey, etc.)
+│   │   └── schemas.py           # Pydantic models (ParsedReceipt, etc.)
 │   └── services/
-│       ├── auth_middleware.py   # JWT + API key validation
+│       ├── auth_middleware.py   # Static API key validation
 │       ├── parser_service.py    # Claude vision extraction + JSON merging
 │       └── pdf_service.py       # PDF → image conversion via pdf2image
 ├── tests/
 │   └── test_api.py              # Pytest test suite
-├── scripts/
-│   └── supabase_migration.sql   # Run this in Supabase SQL Editor
 ├── .env.example                 # Copy to .env and fill in values
 ├── requirements.txt
 ├── railway.toml                 # Railway deployment config
@@ -66,24 +61,15 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Set up Supabase
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Go to **Authentication → Providers** and enable **Google OAuth**
-   - You'll need a Google OAuth client ID/secret from [console.cloud.google.com](https://console.cloud.google.com)
-3. Go to **SQL Editor** and run the contents of `scripts/supabase_migration.sql`
-4. Go to **Project Settings → API** and copy:
-   - `Project URL` → `SUPABASE_URL`
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` ⚠️ Keep this secret
-
-### 3. Configure environment variables
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
-# Edit .env with your Anthropic API key and Supabase credentials
+# Edit .env — set ANTHROPIC_API_KEY and generate an API_KEY:
+python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-### 4. Run locally
+### 3. Run locally
 
 ```bash
 uvicorn app.main:app --reload
@@ -98,12 +84,13 @@ Interactive docs at `http://localhost:8000/docs`
 
 ### Authentication
 
-All endpoints (except `/health`) require one of:
+All endpoints (except `/health`) require:
 
-| Method | Header format |
-|---|---|
-| Supabase JWT | `Authorization: Bearer <supabase_jwt>` |
-| API Key | `Authorization: Bearer rp_live_<key>` |
+```
+Authorization: Bearer <your-api-key>
+```
+
+The API key is the value you set in `API_KEY` in your `.env` file.
 
 ---
 
@@ -114,7 +101,7 @@ Upload a receipt or invoice image/PDF. Returns structured JSON.
 **Request:**
 ```
 Content-Type: multipart/form-data
-Authorization: Bearer <token>
+Authorization: Bearer <api-key>
 
 file: <image or PDF file>
 ```
@@ -156,50 +143,6 @@ file: <image or PDF file>
 
 ---
 
-### `POST /keys`
-
-Create a new API key. The full key is returned **once only** — store it securely.
-
-**Request:**
-```json
-{ "name": "Production" }
-```
-
-**Response:**
-```json
-{
-  "id": "uuid",
-  "name": "Production",
-  "key": "rp_live_aBcDeFgH...",
-  "created_at": "2024-11-15T10:00:00Z"
-}
-```
-
----
-
-### `GET /keys`
-
-List all active API keys (previews only — full key never returned again).
-
----
-
-### `DELETE /keys/{key_id}`
-
-Revoke an API key. Cannot be undone.
-
----
-
-### `POST /auth/verify`
-
-Verify a Supabase JWT and return user info. Call this from your frontend after OAuth login.
-
-**Request:**
-```json
-{ "access_token": "<supabase_jwt>" }
-```
-
----
-
 ## Running Tests
 
 ```bash
@@ -217,13 +160,6 @@ pytest tests/ -v
 5. Your API will be live at `https://your-app.up.railway.app`
 
 > **Tip:** Railway's free tier is enough for early testing. Upgrade when you need always-on uptime.
-
----
-
-## Rate Limiting (Add Later)
-
-For the MVP, rate limiting is handled at the API key level via `request_count` in the database.
-When you're ready to enforce limits, add [slowapi](https://github.com/laurentS/slowapi) — it drops in as FastAPI middleware in ~20 lines.
 
 ---
 
