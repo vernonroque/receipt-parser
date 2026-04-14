@@ -1,18 +1,60 @@
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anthropic==0.34.2
+anyio==4.13.0
+certifi==2026.2.25
+click==8.3.2
+deprecation==2.1.0
+distro==1.9.0
 fastapi==0.115.0
-uvicorn[standard]==0.30.6
-python-multipart==0.0.9         # Required for UploadFile support in FastAPI
+filelock==3.25.2
+fsspec==2026.3.0
+gotrue==2.12.4
+h11==0.16.0
+h2==4.3.0
+hf-xet==1.4.3
+hpack==4.1.0
+httpcore==1.0.9
+httptools==0.7.1
+httpx==0.27.2
+huggingface_hub==1.10.1
+hyperframe==6.1.0
+idna==3.11
+iniconfig==2.3.0
+jiter==0.14.0
+markdown-it-py==4.0.0
+mdurl==0.1.2
+packaging==26.0
+pdf2image==1.17.0
+pillow==10.4.0
+pluggy==1.6.0
+postgrest==0.16.11
 pydantic==2.9.2
 pydantic-settings==2.5.2
-
-# Anthropic
-anthropic==0.34.2
-
-# PDF support
-pdf2image==1.17.0               # Requires poppler — see README
-Pillow==10.4.0                  # Image processing
-
-# Dev / testing
+pydantic_core==2.23.4
+Pygments==2.20.0
+PyJWT==2.12.1
 pytest==8.3.3
 pytest-asyncio==0.24.0
-httpx==0.27.2                   # For FastAPI TestClient
+python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
+python-multipart==0.0.9
+PyYAML==6.0.3
+realtime==2.5.3
+rich==14.3.4
+shellingham==1.5.4
+six==1.17.0
+sniffio==1.3.1
+starlette==0.38.6
+storage3==0.7.7
+StrEnum==0.4.15
+supabase==2.7.4
+supafunc==0.5.1
+tokenizers==0.22.2
+tqdm==4.67.3
+typer==0.24.1
+typing_extensions==4.15.0
+uvicorn==0.30.6
+uvloop==0.22.1
+watchfiles==1.1.1
+websockets==15.0.1
