@@ -4,6 +4,7 @@ from app.services.auth_middleware import get_current_user
 from app.services.parser_service import parse_images
 from app.services.pdf_service import pdf_to_images, PDFConversionError
 from app.core.config import settings
+from app.services.compress_images import compress_image_for_claude
 
 router = APIRouter()
 
@@ -38,14 +39,18 @@ async def parse_receipt(
         )
 
     try:
-        # --- PDF path ---
         if content_type == ALLOWED_PDF_TYPE:
             image_bytes_list = pdf_to_images(file_bytes)
-        # --- Image path ---
         else:
             image_bytes_list = [file_bytes]
 
-        parsed, pages_processed = parse_images(image_bytes_list)
+        # Compress each image individually before sending to Claude
+        compressed_list = []
+        for page_bytes in image_bytes_list:
+            compressed, media_type = compress_image_for_claude(page_bytes)
+            compressed_list.append(compressed)
+
+        parsed, pages_processed = parse_images(compressed_list)
 
         return ParseResponse(
             success=True,
