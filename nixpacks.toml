@@ -3,9 +3,9 @@ nixPkgs = ["python312", "python312Packages.pip", "poppler_utils"]
 
 [phases.install]
 cmds = [
-  "pip3 install -r requirements.txt --break-system-packages",
-  "pip3 show uvicorn"
+  "python3 -m venv /app/venv",
+  "/app/venv/bin/pip install -r requirements.txt"
 ]
 
 [start]
-cmd = "python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "/app/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT"
