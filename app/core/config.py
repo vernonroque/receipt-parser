@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     # Auth
     API_KEY: str
+    RAPIDAPI_PROXY_SECRET: str = ""
 
     # App
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]

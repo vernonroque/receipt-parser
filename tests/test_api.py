@@ -61,6 +61,34 @@ def test_parse_rejects_large_file():
         assert res.status_code == 413
 
 
+# ---- RapidAPI proxy auth tests ----
+
+def test_parse_accepts_rapidapi_proxy_secret():
+    with patch("app.services.auth_middleware.settings") as mock_settings:
+        mock_settings.API_KEY = API_KEY
+        mock_settings.RAPIDAPI_PROXY_SECRET = "test-rapidapi-secret"
+
+        res = client.post(
+            "/api/parse",
+            files={"file": ("test.jpg", b"\xff\xd8\xff" + b"x" * 100, "image/jpeg")},
+            headers={"X-RapidAPI-Proxy-Secret": "test-rapidapi-secret"},
+        )
+        assert res.status_code != 401
+
+
+def test_parse_rejects_wrong_rapidapi_secret():
+    with patch("app.services.auth_middleware.settings") as mock_settings:
+        mock_settings.API_KEY = API_KEY
+        mock_settings.RAPIDAPI_PROXY_SECRET = "test-rapidapi-secret"
+
+        res = client.post(
+            "/api/parse",
+            files={"file": ("test.jpg", b"\xff\xd8\xff" + b"x" * 100, "image/jpeg")},
+            headers={"X-RapidAPI-Proxy-Secret": "wrong-secret"},
+        )
+        assert res.status_code == 401
+
+
 # ---- parser_service unit tests ----
 
 def test_extract_json_strips_fences():
