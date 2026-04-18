@@ -1,3 +1,4 @@
+import base64
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from app.models.schemas import ParseResponse
 from app.services.auth_middleware import get_current_user
@@ -31,6 +32,14 @@ async def parse_receipt(
         )
 
     file_bytes = await file.read()
+
+    # RapidAPI Studio sends files as base64 strings; detect by absence of magic bytes
+    _IMAGE_MAGIC = (b'\xff\xd8\xff', b'\x89PNG', b'%PDF', b'RIFF', b'GIF8')
+    if not any(file_bytes.startswith(m) for m in _IMAGE_MAGIC):
+        try:
+            file_bytes = base64.b64decode(file_bytes)
+        except Exception:
+            pass
 
     if len(file_bytes) > MAX_BYTES:
         raise HTTPException(
