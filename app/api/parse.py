@@ -13,6 +13,7 @@ router = APIRouter()
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_PDF_TYPE = "application/pdf"
 MAX_BYTES = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+_HARD_LIMIT_BYTES = 20 * 1024 * 1024  # absolute ceiling before any processing
 
 _IMAGE_MAGIC = (b'\xff\xd8\xff', b'\x89PNG', b'%PDF', b'RIFF', b'GIF8')
 
@@ -84,22 +85,32 @@ async def parse_receipt(
             detail=f"Unsupported file type: {content_type}. Allowed: JPEG, PNG, WEBP, PDF.",
         )
 
-    if len(file_bytes) > MAX_BYTES:
+    if len(file_bytes) > _HARD_LIMIT_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
+            detail="File too large. Maximum upload size is 20MB.",
         )
+
+    if content_type == ALLOWED_PDF_TYPE:
+        if len(file_bytes) > MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
+            )
+    else:
+        file_bytes, _ = compress_image_for_claude(file_bytes)
+        if len(file_bytes) > MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
+            )
 
     try:
         if content_type == ALLOWED_PDF_TYPE:
             image_bytes_list = pdf_to_images(file_bytes)
+            compressed_list = [compress_image_for_claude(p)[0] for p in image_bytes_list]
         else:
-            image_bytes_list = [file_bytes]
-
-        compressed_list = []
-        for page_bytes in image_bytes_list:
-            compressed, media_type = compress_image_for_claude(page_bytes)
-            compressed_list.append(compressed)
+            compressed_list = [file_bytes]
 
         parsed, pages_processed = parse_images(compressed_list)
 
