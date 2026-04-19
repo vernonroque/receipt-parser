@@ -26,7 +26,29 @@ def _decode_if_base64(data: bytes) -> bytes:
     return data
 
 
-@router.post("/parse", response_model=ParseResponse)
+@router.post(
+    "/parse",
+    response_model=ParseResponse,
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "file": {
+                                "type": "string",
+                                "format": "binary",
+                                "description": "Receipt or invoice file (JPEG, PNG, WEBP, or PDF)",
+                            }
+                        },
+                        "required": ["file"],
+                    }
+                }
+            }
+        }
+    },
+)
 async def parse_receipt(
     request: Request,
     user_id: str = Depends(get_current_user),
