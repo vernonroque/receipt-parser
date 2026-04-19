@@ -10,7 +10,7 @@ from app.services.compress_images import compress_image_for_claude
 
 router = APIRouter()
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_PDF_TYPE = "application/pdf"
 MAX_BYTES = settings.MAX_FILE_SIZE_MB * 1024 * 1024
 
