@@ -22,8 +22,6 @@
 
 ---
 
-<a id="overview"></a>
-
 ## Overview
 
 The **Receipt Parser API** turns any receipt image or PDF into clean, structured JSON in milliseconds. Whether you're building an expense tracker, accounting integration, or reimbursement workflow — this API handles the heavy lifting.
@@ -52,8 +50,6 @@ The **Receipt Parser API** turns any receipt image or PDF into clean, structured
 
 ---
 
-<a id="getting-started-on-rapidapi"></a>
-
 ## Getting Started on RapidAPI
 
 1. **Subscribe** to the Receipt Parser API on [RapidAPI](https://rapidapi.com)
@@ -62,8 +58,6 @@ The **Receipt Parser API** turns any receipt image or PDF into clean, structured
 4. Make your first request using the examples below — you'll have structured data in under a minute
 
 ---
-
-<a id="authentication"></a>
 
 ## Authentication
 
@@ -82,8 +76,6 @@ API_KEY = os.environ.get("RAPIDAPI_KEY")
 ```
 
 ---
-
-<a id="endpoint"></a>
 
 ## Endpoint
 
@@ -110,13 +102,10 @@ POST /api/parse
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `file` | File | ✅ | Receipt file — JPEG, PNG, WebP, or PDF (max 10MB) |
-| `language` | String | ❌ | Language hint, e.g. `en`, `es`, `fr` (default: `en`) |
 
 > **Note:** Handles multi-page PDFs of receipts or invoices
 
 ---
-
-<a id="response-schema"></a>
 
 ## Response Schema
 
@@ -202,8 +191,6 @@ The endpoint returns the following JSON structure.
 > **Note:** Fields that cannot be detected on the receipt are returned as `null`.
 
 ---
-
-<a id="code-examples"></a>
 
 ## Code Examples
 
@@ -395,19 +382,20 @@ console.log(response.data);
 
 ---
 
-<a id="error-codes"></a>
-
 ## Error Codes
 
 | HTTP Status | Code | Description |
 |---|---|---|
-| `400` | `INVALID_INPUT` | Missing or malformed request body |
-| `400` | `UNSUPPORTED_FORMAT` | File type not supported — use JPEG, PNG, WebP, or PDF |
-| `400` | `FILE_TOO_LARGE` | File exceeds the 10MB size limit |
+| `413` | `FILE_TOO_LARGE` | File exceeds the 10MB size limit |
+| `415` | `UNSUPPORTED_FORMAT` | File type not supported — use JPEG, PNG, WebP, GIF, or PDF |
+| `422` | `INVALID_INPUT` | Missing or malformed request body |
+| `422` | `PARSE_FAILED` | PDF could not be converted (corrupted or password-protected) |
 | `401` | `UNAUTHORIZED` | Missing or invalid API key |
-| `422` | `PARSE_FAILED` | Receipt could not be parsed — likely low image quality |
 | `429` | `RATE_LIMIT_EXCEEDED` | Too many requests — slow down or upgrade your plan |
 | `500` | `INTERNAL_ERROR` | Unexpected server error — retry after a moment |
+
+> **Note:** If the receipt image is valid but unreadable (low quality, cropped, etc.), the API returns `200` with `"success": false` and an error message in the `error` field — not a 4xx status code.
+
 
 **Error Response Shape:**
 
@@ -422,8 +410,6 @@ console.log(response.data);
 
 ---
 
-<a id="rate-limits--pricing"></a>
-
 ## Rate Limits & Pricing
 
 | Plan | Requests / Month |
@@ -436,8 +422,6 @@ View full pricing on the [RapidAPI listing page](https://rapidapi.com).
 
 ---
 
-<a id="faq"></a>
-
 ## FAQ
 
 **Q: What image quality works best?**  
@@ -447,17 +431,15 @@ A: Good lighting, minimal blur, and the full receipt in frame will yield the hig
 A: WebP files compressed heavily or exported from screenshots may lose fine detail. Try uploading the original JPEG or PNG source if available.
 
 **Q: Can it handle multi-page PDFs?**  
-A: Only the first page of a PDF is currently processed. Ensure the receipt content is on page 1.
+A: Yes — up to 10 pages are processed and merged automatically.
 
 **Q: Are non-English receipts supported?**  
-A: Yes. Pass a `language` hint (e.g. `"es"` for Spanish, `"fr"` for French) for best results. Auto-detection is enabled by default.
+A: Yes. Auto-detection is enabled by default.
 
 **Q: Is my receipt data stored?**  
 A: No receipt data is retained after processing. See the privacy policy on the RapidAPI listing for full details.
 
 ---
-
-<a id="support"></a>
 
 ## Support
 
