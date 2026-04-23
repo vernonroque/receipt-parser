@@ -1,8 +1,13 @@
 # Receipt / Invoice Parser API
 
-Upload an image or PDF receipt/invoice → get structured JSON back with merchant info, line items, and totals.
+Convert receipt & invoice images to structured JSON — try the live demo, no signup required
+[▶ Try Live Demo](https://receipt-parser-demo.netlify.app/)
 
 Built with **FastAPI** and **Claude Vision API**.
+
+![Receipt Parser Demo](assets/demo.gif)
+
+[See code examples in 10+ languages on RapidAPI](https://rapidapi.com/vernonroque/api/receipt-parser2/playground/apiendpoint_2a52b603-6f41-4a2d-bc24-742f30a3acaa)
 
 ---
 
@@ -156,7 +161,7 @@ pytest tests/ -v
 1. Push your code to GitHub
 2. Create a new Railway project → **Deploy from GitHub repo**
 3. Add environment variables in Railway dashboard (same as your `.env`)
-4. Railway will automatically use `nixpacks.toml` to install poppler
+4. Railway will automatically use the `Dockerfile` to install `poppler-utils`
 5. Your API will be live at `https://your-app.up.railway.app`
 
 > **Tip:** Railway's free tier is enough for early testing. Upgrade when you need always-on uptime.

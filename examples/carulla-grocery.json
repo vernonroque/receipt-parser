@@ -1,0 +1,44 @@
+{
+  "success": true,
+  "pages_processed": 1,
+  "data": {
+    "merchant": {
+      "name": "carulla fresh market calle 63",
+      "address": null,
+      "phone": null,
+      "website": null,
+      "tax_id": "{your tax ID}"
+    },
+    "date": "2026-04-12",
+    "invoice_number": "UH189633",
+    "line_items": [
+      {
+        "description": "PLU 1/u x 45.300 V.Ahorro 0",
+        "quantity": 1,
+        "unit_price": 45.3,
+        "total": 45.3
+      },
+      {
+        "description": "Cafe Gourmet Tos",
+        "quantity": 1,
+        "unit_price": 12.38,
+        "total": 12.38
+      },
+      {
+        "description": "Manzana Bolsa In",
+        "quantity": 1,
+        "unit_price": 3.8,
+        "total": 3.8
+      }
+    ],
+    "subtotal": 61.48,
+    "tax": null,
+    "tip": null,
+    "discount": 0,
+    "total": 61.48,
+    "currency": "COP",
+    "payment_method": "{your payment method}",
+    "notes": "COMPRA POR WHATSAPP {phone number}"
+  },
+  "error": null
+}

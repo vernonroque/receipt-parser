@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "pages_processed": 1,
+  "data": {
+    "merchant": {
+      "name": "Chapinero Healthy Gym",
+      "address": "{your address}",
+      "phone": "{your phone number}",
+      "website": "{your website}",
+      "tax_id": "{your tax ID}"
+    },
+    "date": "2025-10-15",
+    "invoice_number": "{your invoice number}",
+    "line_items": [
+      {
+        "description": "15-10-2025 : 1 Mes (2025-10-15 - 2025-11-14)",
+        "quantity": 1,
+        "unit_price": 84033.61,
+        "total": 100000
+      }
+    ],
+    "subtotal": 84033.61,
+    "tax": 15966.39,
+    "tip": null,
+    "discount": null,
+    "total": 100000,
+    "currency": "COP",
+    "payment_method": "Tarjeta",
+    "notes": "Es necesario realizar el pago antes de 10 días en nuestra cuenta bancaria, indicando su nombre y el número de la factura. Si ha realizado una transferencia de débito directo, la cantidad a pagar se adecuará de su cuenta bancaria en 8 días."
+  },
+  "error": null
+}

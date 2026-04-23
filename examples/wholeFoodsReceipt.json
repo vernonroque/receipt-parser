@@ -1,0 +1,62 @@
+{
+  "success": true,
+  "pages_processed": 1,
+  "data": {
+    "merchant": {
+      "name": "Whole Foods Market",
+      "address": "{address}",
+      "phone": "{phone number}",
+      "website": null,
+      "tax_id": null
+    },
+    "date": "2026-03-01",
+    "invoice_number": null,
+    "line_items": [
+      {
+        "description": "DVD OLI",
+        "quantity": null,
+        "unit_price": null,
+        "total": 7.49
+      },
+      {
+        "description": "HASS AVOCADO LARGE",
+        "quantity": null,
+        "unit_price": 1.09,
+        "total": 3
+      },
+      {
+        "description": "ZUCCHINI",
+        "quantity": 0.76,
+        "unit_price": 1.99,
+        "total": 1.51
+      },
+      {
+        "description": "ORG ONION",
+        "quantity": 0.49,
+        "unit_price": 2.99,
+        "total": 1.47
+      },
+      {
+        "description": "365WFM OG CREAMY ALM BTTR",
+        "quantity": 0.85,
+        "unit_price": 5.99,
+        "total": 5.99
+      },
+      {
+        "description": "NORI GUAVA",
+        "quantity": null,
+        "unit_price": null,
+        "total": 4.24
+      }
+    ],
+    "subtotal": 31.33,
+    "tax": 1.63,
+    "tip": null,
+    "discount": 1.63,
+    "total": 29.7,
+    "currency": "USD",
+    "payment_method": "{payment method}",
+    "notes": "Your Total Savings $1.63"
+  },
+  "error": null
+}
