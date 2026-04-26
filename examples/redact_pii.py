@@ -25,7 +25,7 @@ Return ONLY a JSON object — no markdown, no explanation:
     {"label": "name", "x": 0.05, "y": 0.12, "w": 0.30, "h": 0.04}
   ]
 }
-x, y = top-left corner as fraction of image width/height (0.0–1.0)
+x, y = top-left corner as fraction of image width/height (0.0-1.0)
 w, h = width/height as fraction of image dimensions
 Add generous padding around each region to fully cover the text."""
 

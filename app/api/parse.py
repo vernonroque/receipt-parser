@@ -7,6 +7,7 @@ from app.services.parser_service import parse_images
 from app.services.pdf_service import pdf_to_images, PDFConversionError
 from app.core.config import settings
 from app.services.compress_images import compress_image_for_claude
+from app.services.img_enhancement import fix_orientation, binarization, straighten, sharpen, upscale_image
 
 router = APIRouter()
 
@@ -98,6 +99,7 @@ async def parse_receipt(
                 detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
             )
     else:
+        file_bytes = fix_orientation(file_bytes)
         file_bytes, _ = compress_image_for_claude(file_bytes)
         if len(file_bytes) > MAX_BYTES:
             raise HTTPException(
@@ -108,7 +110,7 @@ async def parse_receipt(
     try:
         if content_type == ALLOWED_PDF_TYPE:
             image_bytes_list = pdf_to_images(file_bytes)
-            compressed_list = [compress_image_for_claude(p)[0] for p in image_bytes_list]
+            compressed_list = [compress_image_for_claude(fix_orientation(p))[0] for p in image_bytes_list]
         else:
             compressed_list = [file_bytes]
 
