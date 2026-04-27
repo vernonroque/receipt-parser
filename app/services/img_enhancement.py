@@ -115,13 +115,19 @@ def deskew(image_bytes: bytes) -> bytes:
 
     _, binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    coords = np.column_stack(np.where(binary > 0))
+    coords = np.column_stack(np.where(binary > 0)[::-1])  # (x, y) ordering for minAreaRect
+    if coords.size == 0:
+        return image_bytes
+
     angle = cv2.minAreaRect(coords)[-1]
 
     if angle < -45:
         angle = -(90 + angle)
     else:
         angle = -angle
+
+    if abs(angle) < 0.5:
+        return image_bytes
 
     (h, w) = img_color.shape[:2]
     center = (w // 2, h // 2)
