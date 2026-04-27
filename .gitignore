@@ -9,3 +9,6 @@ dist/
 *.egg-info/
 .DS_Store
 test-api.md
+test_crop.py
+*.jpg
+tmp/
