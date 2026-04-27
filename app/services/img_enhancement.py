@@ -39,52 +39,73 @@ def _four_point_transform(img: np.ndarray, pts: np.ndarray) -> np.ndarray:
     return cv2.warpPerspective(img, M, (dst_w, dst_h))
 
 
+def _detect_receipt_corners(img: np.ndarray) -> np.ndarray | None:
+    h, w = img.shape[:2]
+    small = cv2.resize(img, (int(w * 0.25), int(h * 0.25)))
+    sh, sw = small.shape[:2]
+
+    margin_x = int(sw * 0.20)
+    margin_y = int(sh * 0.05)
+    rect = (margin_x, margin_y, sw - 2 * margin_x, sh - 2 * margin_y)
+
+    mask = np.zeros(small.shape[:2], np.uint8)
+    bgd_model = np.zeros((1, 65), np.float64)
+    fgd_model = np.zeros((1, 65), np.float64)
+    cv2.grabCut(small, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
+
+    fg_mask = np.where(
+        (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0
+    ).astype(np.uint8)
+    fg_mask = cv2.resize(fg_mask, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 30))
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, k, iterations=3)
+
+    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    c = max(contours, key=cv2.contourArea)
+
+    for eps in (0.02, 0.03, 0.05, 0.08, 0.10):
+        approx = cv2.approxPolyDP(c, eps * cv2.arcLength(c, True), True)
+        if len(approx) == 4:
+            return approx.reshape(4, 2).astype(np.float32)
+
+    box = cv2.boxPoints(cv2.minAreaRect(c))
+    return box.astype(np.float32)
+
+
+def _tight_crop_white(img: np.ndarray, padding: int = 10) -> np.ndarray:
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
+    coords = cv2.findNonZero(mask)
+    if coords is None:
+        return img
+    x, y, cw, ch = cv2.boundingRect(coords)
+    x  = max(0, x - padding)
+    y  = max(0, y - padding)
+    cw = min(img.shape[1] - x, cw + 2 * padding)
+    ch = min(img.shape[0] - y, ch + 2 * padding)
+    return img[y:y + ch, x:x + cw]
+
+
 def crop_to_content(image_bytes: bytes) -> bytes:
     buf = np.frombuffer(image_bytes, dtype=np.uint8)
     img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
     if img is None:
         return image_bytes
 
-    h, w = img.shape[:2]
-    scale = 800.0 / max(h, w)
-    small = cv2.resize(img, (int(w * scale), int(h * scale)))
-    sh, sw = small.shape[:2]
-
-    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 75, 200)
-
-    kernel = np.ones((5, 5), np.uint8)
-    dilated = cv2.dilate(edges, kernel, iterations=1)
-
-    contours, _ = cv2.findContours(dilated, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
-
-    doc_contour = None
-    min_area = sh * sw * 0.10
-    for c in contours:
-        if cv2.contourArea(c) < min_area:
-            break
-        hull = cv2.convexHull(c)
-        for eps in (0.02, 0.03, 0.04, 0.05):
-            peri = cv2.arcLength(hull, True)
-            approx = cv2.approxPolyDP(hull, eps * peri, True)
-            if len(approx) == 4:
-                doc_contour = approx
-                break
-        if doc_contour is not None:
-            break
-
-    if doc_contour is None:
+    corners = _detect_receipt_corners(img)
+    if corners is None:
         return image_bytes
 
-    pts = (doc_contour.reshape(4, 2) / scale).astype(np.float32)
-    result = _four_point_transform(img, pts)
-
-    if result.shape[0] < 100 or result.shape[1] < 100:
+    warped = _four_point_transform(img, corners)
+    if warped.shape[0] < 100 or warped.shape[1] < 100:
         return image_bytes
 
-    _, encoded = cv2.imencode('.jpg', result, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    cropped = _tight_crop_white(warped)
+
+    _, encoded = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
     return encoded.tobytes()
 
 def deskew(image_bytes: bytes) -> bytes:
