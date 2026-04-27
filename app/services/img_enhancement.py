@@ -157,5 +157,14 @@ def binarization(image_bytes: bytes) -> bytes:
     _, encoded = cv2.imencode('.jpg', binary, [cv2.IMWRITE_JPEG_QUALITY, 95])
     return encoded.tobytes()
 
-def sharpen():
-    pass
+def sharpen(image_bytes: bytes) -> bytes:
+    buf = np.frombuffer(image_bytes, dtype=np.uint8)
+    img = cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return image_bytes
+
+    blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=2)
+    sharpened = cv2.addWeighted(img, 1.5, blurred, -0.5, 0)
+
+    _, encoded = cv2.imencode('.jpg', sharpened, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    return encoded.tobytes()
