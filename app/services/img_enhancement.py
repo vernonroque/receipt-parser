@@ -137,8 +137,25 @@ def deskew(image_bytes: bytes) -> bytes:
     _, encoded = cv2.imencode('.jpg', deskewed, [cv2.IMWRITE_JPEG_QUALITY, 95])
     return encoded.tobytes()
 
-def binarization():
-    pass
+def binarization(image_bytes: bytes) -> bytes:
+    buf = np.frombuffer(image_bytes, dtype=np.uint8)
+    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    if img is None:
+        return image_bytes
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    binary = cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        blockSize=25,
+        C=12,
+    )
+
+    _, encoded = cv2.imencode('.jpg', binary, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    return encoded.tobytes()
 
 def sharpen():
     pass

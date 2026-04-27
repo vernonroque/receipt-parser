@@ -12,3 +12,4 @@ test-api.md
 test_crop.py
 *.jpg
 tmp/
+test_binarization.py
