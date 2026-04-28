@@ -14,3 +14,4 @@ test_crop.py
 tmp/
 test_binarization.py
 test_sharpen.py
+test_orientation.py
