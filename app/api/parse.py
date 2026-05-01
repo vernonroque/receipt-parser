@@ -119,7 +119,7 @@ async def parse_receipt(
         else:
             compressed_list = [file_bytes]
 
-        parsed, pages_processed = parse_images_gpt(compressed_list)
+        parsed, pages_processed = parse_images(compressed_list)
 
         return ParseResponse(
             success=True,
