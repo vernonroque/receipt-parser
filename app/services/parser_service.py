@@ -1,5 +1,4 @@
 import anthropic
-import asyncio
 import base64
 import json
 import re
@@ -7,7 +6,7 @@ from typing import List
 from app.core.config import settings
 from app.models.schemas import ParsedReceipt
 
-client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 EXTRACTION_PROMPT = """
 You are a receipt and invoice data extraction engine.
@@ -85,9 +84,9 @@ def _extract_json(text: str) -> dict:
     return json.loads(text)
 
 
-async def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg") -> dict:
+def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg") -> dict:
     """Send one image to Claude and return the raw parsed dict."""
-    response = await client.messages.create(
+    response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1500,
         messages=[
@@ -112,12 +111,13 @@ async def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg")
     try:
         return _extract_json(raw_text)
     except json.JSONDecodeError:
-        return await _repair_json(raw_text)
+        # Ask Claude to fix its own output
+        return _repair_json(raw_text)
 
 
-async def _repair_json(bad_output: str) -> dict:
+def _repair_json(bad_output: str) -> dict:
     """Ask Claude to repair malformed JSON output."""
-    response = await client.messages.create(
+    response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1500,
         messages=[
@@ -133,12 +133,12 @@ Fix it and return ONLY the corrected JSON object, no explanation, no backticks:
     return json.loads(response.content[0].text.strip())
 
 
-async def merge_pages(pages_data: List[dict]) -> dict:
+def merge_pages(pages_data: List[dict]) -> dict:
     """Merge multiple page extractions into one coherent result using Claude."""
     if len(pages_data) == 1:
         return pages_data[0]
 
-    response = await client.messages.create(
+    response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=2000,
         messages=[
@@ -159,16 +159,17 @@ async def merge_pages(pages_data: List[dict]) -> dict:
         return max(pages_data, key=lambda p: sum(1 for v in p.values() if v is not None))
 
 
-async def parse_images(image_bytes_list: List[bytes]) -> tuple[ParsedReceipt, int]:
+def parse_images(image_bytes_list: List[bytes]) -> tuple[ParsedReceipt, int]:
     """
     Parse one or more page images and return a merged ParsedReceipt.
     Returns (parsed_receipt, pages_processed).
     """
-    pages_data = list(await asyncio.gather(
-        *[parse_single_image(img, media_type="image/jpeg") for img in image_bytes_list]
-    ))
+    pages_data = []
+    for img_bytes in image_bytes_list:
+        page_result = parse_single_image(img_bytes, media_type="image/jpeg")
+        pages_data.append(page_result)
 
-    merged = await merge_pages(pages_data)
+    merged = merge_pages(pages_data)
 
     # Validate through Pydantic (fills in missing fields with None)
     parsed = ParsedReceipt(**merged)
