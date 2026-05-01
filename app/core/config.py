@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     # Anthropic
     ANTHROPIC_API_KEY: str
 
+    # OpenAI
+    OPENAI_API_KEY: str = ""
+
     # Auth
     API_KEY: str
     RAPIDAPI_PROXY_SECRET: str = ""

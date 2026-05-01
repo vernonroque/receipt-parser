@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.schemas import ParseResponse
 from app.services.auth_middleware import get_current_user
 from app.services.parser_service import parse_images
+from app.services.gpt_parser_service import parse_images_gpt
 from app.services.pdf_service import pdf_to_images, PDFConversionError
 from app.core.config import settings
 from app.services.compress_images import compress_image_for_claude
@@ -118,7 +119,7 @@ async def parse_receipt(
         else:
             compressed_list = [file_bytes]
 
-        parsed, pages_processed = parse_images(compressed_list)
+        parsed, pages_processed = parse_images_gpt(compressed_list)
 
         return ParseResponse(
             success=True,
