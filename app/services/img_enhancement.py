@@ -168,3 +168,26 @@ def sharpen(image_bytes: bytes) -> bytes:
 
     _, encoded = cv2.imencode('.jpg', sharpened, [cv2.IMWRITE_JPEG_QUALITY, 95])
     return encoded.tobytes()
+
+
+def preprocess_image(image_bytes: bytes, max_dimension: int = 2048) -> bytes:
+    """
+    Single-pass preprocessing: decode, mode-convert, downscale to max_dimension,
+    EXIF-correct, then compress for Claude. Replaces calling fix_orientation
+    followed by compress_image_for_claude separately.
+    """
+    from app.services.compress_images import compress_image_for_claude
+
+    img = Image.open(io.BytesIO(image_bytes))
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+
+    w, h = img.size
+    longest = max(w, h)
+    if longest > max_dimension:
+        scale = max_dimension / longest
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+    img = ImageOps.exif_transpose(img)
+
+    return compress_image_for_claude(img)

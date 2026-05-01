@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -7,8 +8,7 @@ from app.services.parser_service import parse_images
 from app.services.gpt_parser_service import parse_images_gpt
 from app.services.pdf_service import pdf_to_images, PDFConversionError
 from app.core.config import settings
-from app.services.compress_images import compress_image_for_claude
-from app.services.img_enhancement import fix_orientation, binarization, deskew, sharpen,crop_to_content
+from app.services.img_enhancement import preprocess_image, binarization, deskew, sharpen, crop_to_content
 
 router = APIRouter()
 
@@ -93,6 +93,8 @@ async def parse_receipt(
             detail="File too large. Maximum upload size is 20MB.",
         )
 
+    loop = asyncio.get_running_loop()
+
     if content_type == ALLOWED_PDF_TYPE:
         if len(file_bytes) > MAX_BYTES:
             raise HTTPException(
@@ -100,12 +102,14 @@ async def parse_receipt(
                 detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
             )
     else:
-        file_bytes = fix_orientation(file_bytes)
-        # file_bytes = crop_to_content(file_bytes)
-        # file_bytes = deskew(file_bytes)
-        # file_bytes = binarization(file_bytes)
-        # file_bytes = sharpen(file_bytes)
-        file_bytes, _ = compress_image_for_claude(file_bytes)
+        try:
+            file_bytes = await loop.run_in_executor(None, preprocess_image, file_bytes)
+            # file_bytes = await loop.run_in_executor(None, crop_to_content, file_bytes)
+            # file_bytes = await loop.run_in_executor(None, deskew, file_bytes)
+            # file_bytes = await loop.run_in_executor(None, binarization, file_bytes)
+            # file_bytes = await loop.run_in_executor(None, sharpen, file_bytes)
+        except Exception:
+            raise HTTPException(status_code=422, detail="Could not process image. Ensure the file is a valid JPEG, PNG, or WEBP.")
         if len(file_bytes) > MAX_BYTES:
             raise HTTPException(
                 status_code=413,
@@ -115,11 +119,13 @@ async def parse_receipt(
     try:
         if content_type == ALLOWED_PDF_TYPE:
             image_bytes_list = pdf_to_images(file_bytes)
-            compressed_list = [compress_image_for_claude(fix_orientation(p))[0] for p in image_bytes_list]
+            compressed_list = list(await asyncio.gather(
+                *[loop.run_in_executor(None, preprocess_image, p) for p in image_bytes_list]
+            ))
         else:
             compressed_list = [file_bytes]
 
-        parsed, pages_processed = parse_images_gpt(compressed_list)
+        parsed, pages_processed = await parse_images(compressed_list)
 
         return ParseResponse(
             success=True,

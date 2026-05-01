@@ -99,10 +99,11 @@ def test_extract_json_strips_fences():
 
 
 def test_merge_single_page_passthrough():
+    import asyncio
     from app.services.parser_service import merge_pages
     page = {"merchant": {"name": "Test Store"}, "total": 9.99}
     with patch("app.services.parser_service.client"):
-        result = merge_pages([page])
+        result = asyncio.run(merge_pages([page]))
     assert result == page  # Single page — no merge call needed
 
 
