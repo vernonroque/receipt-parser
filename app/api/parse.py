@@ -1,5 +1,6 @@
 import base64
 import json
+import time
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.schemas import ParseResponse
 from app.services.auth_middleware import get_current_user
@@ -60,6 +61,7 @@ async def parse_receipt(
     Upload a receipt or invoice (JPEG, PNG, WEBP, or PDF).
     Returns structured JSON with merchant info, line items, and totals.
     """
+    start_time = time.perf_counter()
     form = await request.form()
     file_field = form.get("file")
 
@@ -100,7 +102,7 @@ async def parse_receipt(
                 detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
             )
     else:
-        file_bytes = fix_orientation(file_bytes)
+        #file_bytes = fix_orientation(file_bytes)
         # file_bytes = crop_to_content(file_bytes)
         # file_bytes = deskew(file_bytes)
         # file_bytes = binarization(file_bytes)
@@ -119,12 +121,13 @@ async def parse_receipt(
         else:
             compressed_list = [file_bytes]
 
-        parsed, pages_processed = parse_images(compressed_list)
+        parsed, pages_processed = await parse_images(compressed_list)
 
         return ParseResponse(
             success=True,
             pages_processed=pages_processed,
             data=parsed,
+            response_time_ms=round((time.perf_counter() - start_time) * 1000, 2),
         )
 
     except PDFConversionError as e:
@@ -135,4 +138,5 @@ async def parse_receipt(
             success=False,
             pages_processed=0,
             error=f"Parsing failed: {str(e)}",
+            response_time_ms=round((time.perf_counter() - start_time) * 1000, 2),
         )

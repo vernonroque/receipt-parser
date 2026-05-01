@@ -37,6 +37,7 @@ class ParseResponse(BaseModel):
     pages_processed: int
     data: Optional[ParsedReceipt] = None
     error: Optional[str] = None
+    response_time_ms: Optional[float] = None
 
 
 class APIKey(BaseModel):

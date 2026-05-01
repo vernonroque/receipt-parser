@@ -15,7 +15,7 @@ def compress_image_for_claude(image_bytes: bytes, max_size_bytes: int = _SAFE_RA
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
     
-    quality = 90
+    quality = 75
     while quality > 10:
         buffer = io.BytesIO()
         img.save(buffer, format="JPEG", quality=quality)
