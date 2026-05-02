@@ -102,7 +102,7 @@ async def parse_receipt(
                 detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE_MB}MB.",
             )
     else:
-        #file_bytes = fix_orientation(file_bytes)
+        # file_bytes = fix_orientation(file_bytes)
         # file_bytes = crop_to_content(file_bytes)
         # file_bytes = deskew(file_bytes)
         # file_bytes = binarization(file_bytes)

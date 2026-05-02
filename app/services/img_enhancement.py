@@ -1,7 +1,21 @@
 from PIL import Image, ImageOps
+import anthropic
+import base64
 import cv2
+import json
+import logging
 import numpy as np
 import io
+
+_claude_client = anthropic.Anthropic()
+
+_CORNER_PROMPT = """Look at this image and find the receipt or document in it.
+Return ONLY a JSON array with exactly 4 corner points of the receipt, ordered:
+top-left, top-right, bottom-right, bottom-left.
+Each point is [x, y] as a fraction of image width/height (0.0 to 1.0).
+Example: [[0.1, 0.05], [0.9, 0.05], [0.92, 0.95], [0.08, 0.95]]
+If no clear receipt is visible, return null.
+Return ONLY the JSON, no explanation."""
 
 
 def fix_orientation(image_bytes: bytes) -> bytes:
@@ -9,10 +23,93 @@ def fix_orientation(image_bytes: bytes) -> bytes:
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
     img = ImageOps.exif_transpose(img)
+    if img.width > img.height:
+        img = img.rotate(90, expand=True)
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=95)
     return buffer.getvalue()
     
+def _normalize_exposure(img: np.ndarray) -> np.ndarray:
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    return cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+
+
+def _detect_corners_via_rembg(image_bytes: bytes, w: int, h: int) -> np.ndarray | None:
+    try:
+        from rembg import remove
+        rgba_bytes = remove(image_bytes)
+        buf = np.frombuffer(rgba_bytes, dtype=np.uint8)
+        rgba = cv2.imdecode(buf, cv2.IMREAD_UNCHANGED)
+        if rgba is None or rgba.ndim < 3 or rgba.shape[2] < 4:
+            return None
+        rh, rw = rgba.shape[:2]
+        alpha = rgba[:, :, 3]
+        if rh != h or rw != w:
+            alpha = cv2.resize(alpha, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
+        alpha = cv2.morphologyEx(alpha, cv2.MORPH_CLOSE, k_close, iterations=1)
+        _, binary = cv2.threshold(alpha, 10, 255, cv2.THRESH_BINARY)
+
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return None
+        largest = max(contours, key=cv2.contourArea)
+        if cv2.contourArea(largest) < 0.10 * h * w:
+            return None
+
+        for eps in (0.02, 0.03, 0.05, 0.08, 0.10):
+            approx = cv2.approxPolyDP(largest, eps * cv2.arcLength(largest, True), True)
+            if len(approx) == 4:
+                pts = approx.reshape(4, 2).astype(np.float32)
+                pts[:, 0] = np.clip(pts[:, 0], 0, w - 1)
+                pts[:, 1] = np.clip(pts[:, 1], 0, h - 1)
+                return pts
+
+        box = cv2.boxPoints(cv2.minAreaRect(largest))
+        pts = box.astype(np.float32)
+        pts[:, 0] = np.clip(pts[:, 0], 0, w - 1)
+        pts[:, 1] = np.clip(pts[:, 1], 0, h - 1)
+        return pts
+    except Exception as e:
+        logging.warning("rembg corner detection failed: %s", e)
+        return None
+
+
+def _detect_corners_via_claude(image_bytes: bytes, w: int, h: int) -> np.ndarray | None:
+    try:
+        b64 = base64.standard_b64encode(image_bytes).decode()
+        response = _claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=150,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+                    {"type": "text", "text": _CORNER_PROMPT},
+                ],
+            }],
+        )
+        import re
+        text = response.content[0].text.strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text).strip()
+        if text.lower() == "null":
+            return None
+        pts = np.array(json.loads(text), dtype=np.float32)
+        pts[:, 0] *= w
+        pts[:, 1] *= h
+        pts[:, 0] = np.clip(pts[:, 0], 0, w - 1)
+        pts[:, 1] = np.clip(pts[:, 1], 0, h - 1)
+        return pts
+    except Exception as e:
+        logging.warning("Claude corner detection failed: %s", e)
+        return None
+
+
 def _order_points(pts: np.ndarray) -> np.ndarray:
     rect = np.zeros((4, 2), dtype=np.float32)
     s = pts.sum(axis=1)
@@ -41,43 +138,63 @@ def _four_point_transform(img: np.ndarray, pts: np.ndarray) -> np.ndarray:
 
 def _detect_receipt_corners(img: np.ndarray) -> np.ndarray | None:
     h, w = img.shape[:2]
-    small = cv2.resize(img, (int(w * 0.25), int(h * 0.25)))
+    scale = 0.4
+    small = cv2.resize(img, (int(w * scale), int(h * scale)))
     sh, sw = small.shape[:2]
 
-    margin_x = int(sw * 0.20)
-    margin_y = int(sh * 0.05)
-    rect = (margin_x, margin_y, sw - 2 * margin_x, sh - 2 * margin_y)
+    def _scale_pts(pts):
+        pts = pts.astype(np.float32) / scale
+        pts[:, 0] = np.clip(pts[:, 0], 0, w - 1)
+        pts[:, 1] = np.clip(pts[:, 1], 0, h - 1)
+        return pts
 
-    mask = np.zeros(small.shape[:2], np.uint8)
-    bgd_model = np.zeros((1, 65), np.float64)
-    fgd_model = np.zeros((1, 65), np.float64)
-    cv2.grabCut(small, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
-
-    fg_mask = np.where(
-        (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0
-    ).astype(np.uint8)
-    fg_mask = cv2.resize(fg_mask, (w, h), interpolation=cv2.INTER_NEAREST)
-
-    k = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 30))
-    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, k, iterations=3)
-
-    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not contours:
+    def _best_quad(contours, min_area):
+        for c in contours:
+            if cv2.contourArea(c) < min_area:
+                break
+            for eps in (0.02, 0.03, 0.05, 0.08, 0.10):
+                approx = cv2.approxPolyDP(c, eps * cv2.arcLength(c, True), True)
+                if len(approx) == 4:
+                    return _scale_pts(approx.reshape(4, 2))
         return None
-    c = max(contours, key=cv2.contourArea)
 
-    for eps in (0.02, 0.03, 0.05, 0.08, 0.10):
-        approx = cv2.approxPolyDP(c, eps * cv2.arcLength(c, True), True)
-        if len(approx) == 4:
-            return approx.reshape(4, 2).astype(np.float32)
+    min_area = 0.10 * sh * sw
 
-    box = cv2.boxPoints(cv2.minAreaRect(c))
-    return box.astype(np.float32)
+    # Method 1: HSV white-region — reliable when receipt is white on colorful background
+    hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, (0, 0, 150), (180, 60, 255))
+    k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
+    k_open  = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_close, iterations=4)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k_open,  iterations=1)
+    contours_hsv, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours_hsv = sorted(contours_hsv, key=cv2.contourArea, reverse=True)
+    result = _best_quad(contours_hsv, min_area)
+    if result is not None:
+        return result
+
+    # Method 2: Canny edges — fallback for non-white or low-contrast receipts
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blurred, 75, 200)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    edges = cv2.dilate(edges, kernel, iterations=2)
+    contours_canny, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours_canny = sorted(contours_canny, key=cv2.contourArea, reverse=True)
+    result = _best_quad(contours_canny, min_area)
+    if result is not None:
+        return result
+
+    # Last resort: minimum-area bounding box of largest HSV region
+    if contours_hsv and cv2.contourArea(contours_hsv[0]) >= min_area:
+        box = cv2.boxPoints(cv2.minAreaRect(contours_hsv[0]))
+        return _scale_pts(box)
+    return None
 
 
 def _tight_crop_white(img: np.ndarray, padding: int = 10) -> np.ndarray:
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, (0, 0, 140), (180, 50, 255))
     coords = cv2.findNonZero(mask)
     if coords is None:
         return img
@@ -95,13 +212,25 @@ def crop_to_content(image_bytes: bytes) -> bytes:
     if img is None:
         return image_bytes
 
-    corners = _detect_receipt_corners(img)
+    img = _normalize_exposure(img)
+    h, w = img.shape[:2]
+
+    corners = _detect_corners_via_rembg(image_bytes, w, h)
+    if corners is None:
+        corners = _detect_corners_via_claude(image_bytes, w, h)
+    if corners is None:
+        corners = _detect_receipt_corners(img)
     if corners is None:
         return image_bytes
 
     warped = _four_point_transform(img, corners)
     if warped.shape[0] < 100 or warped.shape[1] < 100:
         return image_bytes
+
+    # Receipts are always portrait; if the warp mis-ordered corners and produced
+    # a landscape image, rotate 90° CCW to restore portrait orientation.
+    if warped.shape[1] > warped.shape[0]:
+        warped = cv2.rotate(warped, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     cropped = _tight_crop_white(warped)
 
@@ -159,7 +288,7 @@ def binarization(image_bytes: bytes) -> bytes:
 
 def sharpen(image_bytes: bytes) -> bytes:
     buf = np.frombuffer(image_bytes, dtype=np.uint8)
-    img = cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
     if img is None:
         return image_bytes
 

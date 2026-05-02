@@ -28,6 +28,7 @@ mdurl==0.1.2
 packaging==26.0
 pdf2image==1.17.0
 opencv-python-headless==4.10.0.84
+rembg[cpu]==2.0.59
 pillow==10.4.0
 pluggy==1.6.0
 postgrest==0.16.11
