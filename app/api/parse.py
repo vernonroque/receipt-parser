@@ -108,7 +108,7 @@ async def parse_receipt(
         # file_bytes = deskew(file_bytes)
         # file_bytes = binarization(file_bytes)
         # file_bytes = sharpen(file_bytes)
-        # file_bytes = align_images(file_bytes)
+        file_bytes = align_images(file_bytes)
         file_bytes, _ = compress_image_for_claude(file_bytes)
         if len(file_bytes) > MAX_BYTES:
             raise HTTPException(

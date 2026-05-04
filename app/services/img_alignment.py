@@ -14,6 +14,16 @@ def val_trackbars():
     src = Theshold1, Theshold2
     return src
 
+def biggest_rect_from_contours(contours):
+    if not contours:
+        return np.array([])
+    largest = max(contours, key=cv2.contourArea)
+    if cv2.contourArea(largest) < 5000:
+        return np.array([])
+    rect = cv2.minAreaRect(largest)
+    box = cv2.boxPoints(rect)
+    return np.int32(box).reshape(4, 1, 2)
+
 def biggestContour(contours):
     biggest = np.array([])
     max_area = 0
@@ -48,91 +58,63 @@ def drawRectangle(img, biggest, thickness):
     return img
 
 def align_images(image_bytes: bytes) -> bytes:
-    # webCamFeed = True
-    # cap = cv2.VideoCapture(1)
-    # cap.set(10, 160)
     heightImg = 640
     widthImg = 480
-    #initialize_trackbars()
 
-    #Youtube example has a initialize trackbars() function
-    count = 0
-    while True:
+    # Decode image bytes to OpenCV format
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if image is None:
+        return image_bytes
+    orig = image.copy()
+    print(f"Original image size: {len(image_bytes):,} bytes")
+    print("the data type of the image is ", type(image))
 
-        # Decode image bytes to OpenCV format
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if image is None:
-            return image_bytes
-        orig = image.copy()
-        print(f"Original image size: {len(image_bytes):,} bytes")
-        print ("the data type of the image is ", type(image))
+    img = cv2.resize(orig, (widthImg, heightImg))
 
-        #BLANK IMAGE
-        imgBlank = np.zeros((heightImg, widthImg, 3), np.uint8)  # CREATE A BLANK IMAGE FOR TESTING
+    # Step 1: Grayscale
+    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # if webCamFeed: success, img = cap.read()
+    # Step 2: Edge detection
+    imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)
+    imgThreshold = cv2.Canny(imgBlur, 75, 200)
 
-        img = cv2.resize(orig, (widthImg, heightImg))  # RESIZE IMAGE
-    
-        # Step 1: Grayscale
-        imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # CONVERT IMAGE TO GRAY SCALE
+    kernel = np.ones((5, 5))
+    imgDial = cv2.dilate(imgThreshold, kernel, iterations=4)
+    imgThreshold = cv2.erode(imgDial, kernel, iterations=1)
 
-        # Step 2: Edge detection
-        imgBlur = cv2.GaussianBlur(imgGray, (5, 5), 1)  # ADD GAUSSIAN BLUR
-        #thres = val_trackbars()  # GET TRACK BAR VALUES FOR THRESHOLDS
-        imgThreshold = cv2.Canny(imgBlur, 75, 200)  # APPLY CANNY BLUR
+    # Step 3: Find contours
+    imgContours = img.copy()
+    imgBigContour = img.copy()
+    contours, hierarchy = cv2.findContours(imgThreshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(imgContours, contours, -1, (0, 255, 0), 10)
 
-        kernel = np.ones((5, 5))
-        imgDial = cv2.dilate(imgThreshold, kernel, iterations=4)  # APPLY DILATION
-        imgThreshold = cv2.erode(imgDial, kernel, iterations=1)  # APPLY EROSION
+    # Step 4: Find biggest clean 4-point contour; fall back to minAreaRect
+    biggest, maxArea = biggestContour(contours)
+    if biggest.size == 0:
+        print("No contour with 4 points found, trying minAreaRect...")
+        #biggest = biggest_rect_from_contours(contours)
 
-        # Step 3: Find contours
-        ## FIND ALL CONTOURS
-        imgContours = img.copy()  # COPY IMAGE FOR DISPLAY PURPOSES
-        imgBigContour = img.copy()  # COPY IMAGE FOR DISPLAY PURPOSES
-        contours, hierarchy = cv2.findContours(imgThreshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(imgContours, contours, -1, (0, 255, 0), 10)  # DRAW ALL DETECTED CONTOURS
+    if biggest.size != 0:
+        biggest = reorder(biggest)
+        cv2.drawContours(imgBigContour, biggest, -1, (0, 255, 0), 20)
+        imgBigContour = drawRectangle(imgBigContour, biggest, 2)
+        pts1 = np.float32(biggest)
+        pts2 = np.float32([[0, 0], [widthImg, 0], [0, heightImg], [widthImg, heightImg]])
+        matrix = cv2.getPerspectiveTransform(pts1, pts2)
+        imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg))
 
-        # Step 4: Biggest contour that is a quadrilateral
-        # FIND THE BIGGEST CONTOUR
-        biggest, maxArea = biggestContour(contours)  # FIND THE BIGGEST CONTOUR
-        if biggest.size != 0:
-            biggest = reorder(biggest)
-            cv2.drawContours(imgBigContour, biggest, -1, (0, 255, 0), 20)  # DRAW THE BIGGEST CONTOUR
-            imgBigContour = drawRectangle(imgBigContour, biggest, 2)
-            pts1 = np.float32(biggest)  # PREPARE POINTS FOR WARP
-            pts2 = np.float32([[0, 0], [widthImg, 0], [0, heightImg], [widthImg, heightImg]])  # PREPARE POINTS FOR WARP
-            matrix = cv2.getPerspectiveTransform(pts1, pts2)
-            imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg))
+        imgWarpColored = imgWarpColored[20:imgWarpColored.shape[0] - 20, 20:imgWarpColored.shape[1] - 20]
+        imgWarpColored = cv2.resize(imgWarpColored, (widthImg, heightImg))
 
-            #REMOVE 20 PIXELS FROM EACH SIDE
-            imgWarpColored = imgWarpColored[20:imgWarpColored.shape[0] - 20, 20:imgWarpColored.shape[1] - 20]
-            imgWarpColored = cv2.resize(imgWarpColored, (widthImg, heightImg))
+        imgWarpGray = cv2.cvtColor(imgWarpColored, cv2.COLOR_BGR2GRAY)
+        # imgAdaptiveThre = cv2.adaptiveThreshold(imgWarpGray, 255, 1, 1, 7, 2)
+        # imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
+        # imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
 
-            # APPLY ADAPTIVE THRESHOLD
-            imgWarpGray = cv2.cvtColor(imgWarpColored, cv2.COLOR_BGR2GRAY)
-            imgAdaptiveThre = cv2.adaptiveThreshold(imgWarpGray, 255, 1, 1, 7, 2)
-            imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
-            imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
-
-        _, encoded = cv2.imencode('.jpg', imgAdaptiveThre)
+        _, encoded = cv2.imencode('.jpg', imgWarpGray)
         return encoded.tobytes()
 
-
-    # Step 5: Warp perspective on original color image
-    warped = apply_warp(orig, doc_cnt)
-    cv2.imwrite("tmp/debug_warped.jpg", warped)  # DEBUG: remove after diagnosis
-
-    # Step 6: Adaptive thresholding → scanned paper effect
-    warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    scanned = cv2.adaptiveThreshold(
-        warped_gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        blockSize=11,
-        C=10,
-    )
-
-    _, encoded = cv2.imencode('.jpg', scanned, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    # Nothing detected — return resized original
+    _, encoded = cv2.imencode('.jpg', image)
     return encoded.tobytes()

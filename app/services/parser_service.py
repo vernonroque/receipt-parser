@@ -10,6 +10,7 @@ from app.models.schemas import ParsedReceipt
 client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 _MODEL = "claude-haiku-4-5-20251001"
+# _MODEL = "claude-sonnet-4-20250514"
 
 EXTRACTION_PROMPT = """
 You are a receipt and invoice data extraction engine.
@@ -91,7 +92,7 @@ async def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg")
     """Send one image to Claude and return the raw parsed dict."""
     response = await client.messages.create(
         model=_MODEL,
-        max_tokens=700,
+        max_tokens=2048,
         system=[
             {
                 "type": "text",
@@ -128,7 +129,7 @@ async def _repair_json(bad_output: str) -> dict:
     """Ask Claude to repair malformed JSON output."""
     response = await client.messages.create(
         model=_MODEL,
-        max_tokens=900,
+        max_tokens=2048,
         messages=[
             {
                 "role": "user",
@@ -149,7 +150,7 @@ async def merge_pages(pages_data: List[dict]) -> dict:
 
     response = await client.messages.create(
         model=_MODEL,
-        max_tokens=900,
+        max_tokens=2048,
         messages=[
             {
                 "role": "user",
