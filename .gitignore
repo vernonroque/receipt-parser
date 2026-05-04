@@ -15,3 +15,5 @@ tmp/
 test_binarization.py
 test_sharpen.py
 test_orientation.py
+test_deskew.py
+test_alignment.py

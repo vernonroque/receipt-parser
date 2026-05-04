@@ -109,7 +109,6 @@ def _detect_corners_via_claude(image_bytes: bytes, w: int, h: int) -> np.ndarray
         logging.warning("Claude corner detection failed: %s", e)
         return None
 
-
 def _order_points(pts: np.ndarray) -> np.ndarray:
     rect = np.zeros((4, 2), dtype=np.float32)
     s = pts.sum(axis=1)
@@ -237,34 +236,113 @@ def crop_to_content(image_bytes: bytes) -> bytes:
     _, encoded = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
     return encoded.tobytes()
 
+# def deskew(image_bytes: bytes) -> bytes:
+#     buf = np.frombuffer(image_bytes, dtype=np.uint8)
+#     img_color = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+#     img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+
+#     _, binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+#     coords = np.column_stack(np.where(binary > 0)[::-1])  # (x, y) ordering for minAreaRect
+#     if coords.size == 0:
+#         return image_bytes
+
+#     angle = cv2.minAreaRect(coords)[-1]
+
+#     if angle < -45:
+#         angle = -(90 + angle)
+#     else:
+#         angle = -angle
+
+#     if abs(angle) < 0.5:
+#         return image_bytes
+
+#     (h, w) = img_color.shape[:2]
+#     center = (w // 2, h // 2)
+#     M = cv2.getRotationMatrix2D(center, angle, 1.0)
+#     deskewed = cv2.warpAffine(img_color, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+#     _, encoded = cv2.imencode('.jpg', deskewed, [cv2.IMWRITE_JPEG_QUALITY, 95])
+#     return encoded.tobytes()
+
+# --- Vernon's perspective-warp deskew (commented out — returns brown square on receipts) ---
+# The root cause: THRESH_BINARY_INV makes white receipt paper → black and the brown
+# background → white, so findContours picks up the background outline as the largest
+# contour. approxPolyDP then collapses it to a tiny quad, apply_warp produces near-zero
+# dimensions, and warpPerspective outputs a tiny brown patch. Use crop_to_content() for
+# perspective correction instead.
+
+def order_points(pts):
+    rect = np.zeros((4, 2), dtype="float32")
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+    return rect
+
+def apply_warp(image, pts):
+    rect = order_points(pts.reshape(4, 2))
+    (tl, tr, br, bl) = rect
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    maxWidth = max(int(widthA), int(widthB))
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    maxHeight = max(int(heightA), int(heightB))
+    dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype="float32")
+    M = cv2.getPerspectiveTransform(rect, dst)
+    return cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
 def deskew(image_bytes: bytes) -> bytes:
-    buf = np.frombuffer(image_bytes, dtype=np.uint8)
-    img_color = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-    img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+    # 1. Decode
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if image is None: return image_bytes
+    
+    orig = image.copy()
+    ratio = image.shape[0] / 500.0
+    image = cv2.resize(image, (int(image.shape[1] / ratio), 500))
 
-    _, binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # 2. Advanced Pre-processing for Low Contrast
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Morphological gradient helps find edges when contrast is low (like Whole Foods)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    gradient = cv2.morphologyEx(gray, cv2.MORPH_GRADIENT, kernel)
+    _, thresh = cv2.threshold(gradient, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    coords = np.column_stack(np.where(binary > 0)[::-1])  # (x, y) ordering for minAreaRect
-    if coords.size == 0:
+    # 3. Find the Receipt Blob
+    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not cnts: return image_bytes
+    
+    c = max(cnts, key=cv2.contourArea)
+    
+    # 4. The "Rubber Band" Fix
+    # ConvexHull ignores the jagged tears at the top of 'almendros-receipt.jpg'
+    hull = cv2.convexHull(c)
+    
+    # 5. Simplify the Hull to exactly 4 points
+    # We increase the epsilon until we get 4 points or give up
+    peri = cv2.arcLength(hull, True)
+    receipt_cnt = None
+    
+    # Start with a strict approximation and get more loose if it fails
+    for eps in [0.02, 0.05, 0.1]:
+        approx = cv2.approxPolyDP(hull, eps * peri, True)
+        if len(approx) == 4:
+            receipt_cnt = approx
+            break
+
+    if receipt_cnt is None:
         return image_bytes
 
-    angle = cv2.minAreaRect(coords)[-1]
-
-    if angle < -45:
-        angle = -(90 + angle)
-    else:
-        angle = -angle
-
-    if abs(angle) < 0.5:
-        return image_bytes
-
-    (h, w) = img_color.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    deskewed = cv2.warpAffine(img_color, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
-    _, encoded = cv2.imencode('.jpg', deskewed, [cv2.IMWRITE_JPEG_QUALITY, 95])
-    return encoded.tobytes()
+    # 6. Scale and Warp
+    receipt_cnt = receipt_cnt.astype("float32") * ratio
+    warped = apply_warp(orig, receipt_cnt) # Use your existing apply_warp
+    
+    _, buffer = cv2.imencode('.jpg', warped)
+    return buffer.tobytes()
 
 def binarization(image_bytes: bytes) -> bytes:
     buf = np.frombuffer(image_bytes, dtype=np.uint8)

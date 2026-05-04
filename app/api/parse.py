@@ -10,6 +10,7 @@ from app.services.pdf_service import pdf_to_images, PDFConversionError
 from app.core.config import settings
 from app.services.compress_images import compress_image_for_claude
 from app.services.img_enhancement import fix_orientation, binarization, deskew, sharpen,crop_to_content
+from app.services.img_alignment import align_images
 
 router = APIRouter()
 
@@ -107,6 +108,7 @@ async def parse_receipt(
         # file_bytes = deskew(file_bytes)
         # file_bytes = binarization(file_bytes)
         # file_bytes = sharpen(file_bytes)
+        # file_bytes = align_images(file_bytes)
         file_bytes, _ = compress_image_for_claude(file_bytes)
         if len(file_bytes) > MAX_BYTES:
             raise HTTPException(
