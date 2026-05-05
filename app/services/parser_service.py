@@ -88,7 +88,7 @@ def _extract_json(text: str) -> dict:
     return json.loads(text)
 
 
-async def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg") -> dict:
+async def parse_single_image(image_bytes: bytes, media_type: str = "image/png") -> dict:
     """Send one image to Claude and return the raw parsed dict."""
     response = await client.messages.create(
         model=_MODEL,
@@ -175,7 +175,7 @@ async def parse_images(image_bytes_list: List[bytes]) -> tuple[ParsedReceipt, in
     Returns (parsed_receipt, pages_processed).
     """
     pages_data = list(await asyncio.gather(
-        *[parse_single_image(img, media_type="image/jpeg") for img in image_bytes_list]
+        *[parse_single_image(img, media_type="image/png") for img in image_bytes_list]
     ))
 
     merged = await merge_pages(pages_data)

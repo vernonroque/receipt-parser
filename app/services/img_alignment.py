@@ -112,9 +112,9 @@ def align_images(image_bytes: bytes) -> bytes:
         # imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
         # imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
 
-        _, encoded = cv2.imencode('.jpg', imgWarpGray)
+        _, encoded = cv2.imencode('.png', imgWarpGray)
         return encoded.tobytes()
 
     # Nothing detected — return resized original
-    _, encoded = cv2.imencode('.jpg', image)
+    _, encoded = cv2.imencode('.png', image)
     return encoded.tobytes()

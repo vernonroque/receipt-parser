@@ -26,7 +26,7 @@ def fix_orientation(image_bytes: bytes) -> bytes:
     if img.width > img.height:
         img = img.rotate(90, expand=True)
     buffer = io.BytesIO()
-    img.save(buffer, format="JPEG", quality=95)
+    img.save(buffer, format="PNG")
     return buffer.getvalue()
     
 def _normalize_exposure(img: np.ndarray) -> np.ndarray:
@@ -233,7 +233,7 @@ def crop_to_content(image_bytes: bytes) -> bytes:
 
     cropped = _tight_crop_white(warped)
 
-    _, encoded = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    _, encoded = cv2.imencode('.png', cropped)
     return encoded.tobytes()
 
 # def deskew(image_bytes: bytes) -> bytes:
@@ -341,7 +341,7 @@ def deskew(image_bytes: bytes) -> bytes:
     receipt_cnt = receipt_cnt.astype("float32") * ratio
     warped = apply_warp(orig, receipt_cnt) # Use your existing apply_warp
     
-    _, buffer = cv2.imencode('.jpg', warped)
+    _, buffer = cv2.imencode('.png', warped)
     return buffer.tobytes()
 
 def binarization(image_bytes: bytes) -> bytes:
@@ -361,7 +361,7 @@ def binarization(image_bytes: bytes) -> bytes:
         C=12,
     )
 
-    _, encoded = cv2.imencode('.jpg', binary, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    _, encoded = cv2.imencode('.png', binary)
     return encoded.tobytes()
 
 def sharpen(image_bytes: bytes) -> bytes:
@@ -373,5 +373,5 @@ def sharpen(image_bytes: bytes) -> bytes:
     blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=2)
     sharpened = cv2.addWeighted(img, 1.5, blurred, -0.5, 0)
 
-    _, encoded = cv2.imencode('.jpg', sharpened, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    _, encoded = cv2.imencode('.png', sharpened)
     return encoded.tobytes()
