@@ -50,6 +50,18 @@ def reorder(myPoints):
 
     return myPointsNew
 
+def _tight_crop_gray(img_gray: np.ndarray, padding: int = 15) -> np.ndarray:
+    _, binary = cv2.threshold(img_gray, 240, 255, cv2.THRESH_BINARY_INV)
+    coords = cv2.findNonZero(binary)
+    if coords is None:
+        return img_gray
+    x, y, w, h = cv2.boundingRect(coords)
+    x = max(0, x - padding)
+    y = max(0, y - padding)
+    w = min(img_gray.shape[1] - x, w + 2 * padding)
+    h = min(img_gray.shape[0] - y, h + 2 * padding)
+    return img_gray[y:y + h, x:x + w]
+
 def drawRectangle(img, biggest, thickness):
     cv2.line(img, (biggest[0][0][0], biggest[0][0][1]), (biggest[1][0][0], biggest[1][0][1]), (0, 255, 0), thickness)
     cv2.line(img, (biggest[1][0][0], biggest[1][0][1]), (biggest[2][0][0], biggest[2][0][1]), (0, 255, 0), thickness)
@@ -104,13 +116,13 @@ def align_images(image_bytes: bytes) -> bytes:
         matrix = cv2.getPerspectiveTransform(pts1, pts2)
         imgWarpColored = cv2.warpPerspective(img, matrix, (widthImg, heightImg))
 
-        imgWarpColored = imgWarpColored[20:imgWarpColored.shape[0] - 20, 20:imgWarpColored.shape[1] - 20]
-        imgWarpColored = cv2.resize(imgWarpColored, (widthImg, heightImg))
-
         imgWarpGray = cv2.cvtColor(imgWarpColored, cv2.COLOR_BGR2GRAY)
-        # imgAdaptiveThre = cv2.adaptiveThreshold(imgWarpGray, 255, 1, 1, 7, 2)
-        # imgAdaptiveThre = cv2.bitwise_not(imgAdaptiveThre)
-        # imgAdaptiveThre = cv2.medianBlur(imgAdaptiveThre, 3)
+
+        imgWarpGray = _tight_crop_gray(imgWarpGray)
+        imgWarpGray = cv2.resize(imgWarpGray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+
+        blurred = cv2.GaussianBlur(imgWarpGray, (0, 0), sigmaX=2)
+        imgWarpGray = cv2.addWeighted(imgWarpGray, 1.5, blurred, -0.5, 0)
 
         _, encoded = cv2.imencode('.png', imgWarpGray)
         return encoded.tobytes()
