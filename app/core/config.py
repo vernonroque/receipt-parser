@@ -10,9 +10,13 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # Auth
-    API_KEY: str
+    API_KEY: str = ""
     RAPIDAPI_PROXY_SECRET: str = ""
     X_RAPIDAPI_KEY: str = ""
+
+    # Supabase (optional — omit to use static API_KEY fallback)
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
 
     # App
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]

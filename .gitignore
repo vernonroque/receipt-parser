@@ -18,3 +18,4 @@ test_orientation.py
 test_deskew.py
 test_alignment.py
 test_receipts/
+supabase-integration.md
