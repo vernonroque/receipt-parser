@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_KEY: str = ""
 
+    # Resend (email delivery)
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
+
     # App
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
     MAX_FILE_SIZE_MB: int = 10

@@ -4,7 +4,7 @@ import secrets
 from app.services.auth_middleware import _key_cache
 
 
-async def generate_api_key(name: str, supabase) -> str:
+async def generate_api_key(name: str, supabase, email: str = "") -> str:
     """Generate a new API key, store its hash in Supabase, and return the raw key.
 
     The raw key is returned exactly once — it is never recoverable after this call.
@@ -13,13 +13,11 @@ async def generate_api_key(name: str, supabase) -> str:
     key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
     key_prefix = raw_key[:12]
 
-    await supabase.table("api_keys").insert(
-        {
-            "name": name,
-            "key_hash": key_hash,
-            "key_prefix": key_prefix,
-        }
-    ).execute()
+    row: dict = {"name": name, "key_hash": key_hash, "key_prefix": key_prefix}
+    if email:
+        row["email"] = email
+
+    await supabase.table("api_keys").insert(row).execute()
 
     return raw_key
 
