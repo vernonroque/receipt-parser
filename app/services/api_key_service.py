@@ -4,7 +4,14 @@ import secrets
 from app.services.auth_middleware import _key_cache
 
 
-async def generate_api_key(name: str, supabase, email: str = "") -> str:
+async def generate_api_key(
+    name: str,
+    supabase,
+    email: str = "",
+    plan: str = "free",
+    stripe_customer_id: str = "",
+    stripe_subscription_id: str = "",
+) -> str:
     """Generate a new API key, store its hash in Supabase, and return the raw key.
 
     The raw key is returned exactly once — it is never recoverable after this call.
@@ -13,9 +20,13 @@ async def generate_api_key(name: str, supabase, email: str = "") -> str:
     key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
     key_prefix = raw_key[:12]
 
-    row: dict = {"name": name, "key_hash": key_hash, "key_prefix": key_prefix}
+    row: dict = {"name": name, "key_hash": key_hash, "key_prefix": key_prefix, "plan": plan}
     if email:
         row["email"] = email
+    if stripe_customer_id:
+        row["stripe_customer_id"] = stripe_customer_id
+    if stripe_subscription_id:
+        row["stripe_subscription_id"] = stripe_subscription_id
 
     await supabase.table("api_keys").insert(row).execute()
 

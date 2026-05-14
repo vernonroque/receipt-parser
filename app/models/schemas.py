@@ -1,5 +1,14 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Literal, Optional
+
+Plan = Literal["free", "starter", "pro", "business"]
+
+PLAN_LIMITS: dict[str, dict] = {
+    "free":     {"monthly": 500,     "hourly": 100},
+    "starter":  {"monthly": 5_000,   "hourly": 500},
+    "pro":      {"monthly": 25_000,  "hourly": 2_000},
+    "business": {"monthly": 150_000, "hourly": None},  # None = unlimited
+}
 
 
 class Merchant(BaseModel):
@@ -47,6 +56,7 @@ class APIKey(BaseModel):
     created_at: str
     last_used_at: Optional[str] = None
     request_count: int = 0
+    plan: Plan = "free"
 
 
 class NewAPIKeyResponse(BaseModel):

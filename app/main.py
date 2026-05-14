@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import acreate_client
 
-from app.api import create_api_key, parse
+from app.api import billing, create_api_key, parse
 from app.core.config import settings
 
 
@@ -37,6 +37,7 @@ app.add_middleware(
 
 app.include_router(parse.router, prefix="/api", tags=["Parser"])
 app.include_router(create_api_key.router, prefix="/api", tags=["API Keys"])
+app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
 
 
 @app.get("/health")

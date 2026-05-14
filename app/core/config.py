@@ -22,6 +22,17 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
 
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRICE_STARTER: str = ""
+    STRIPE_PRICE_PRO: str = ""
+    STRIPE_PRICE_BUSINESS: str = ""
+
+    # Frontend (success/cancel redirect after Stripe checkout)
+    # For production with my marketing site, use the marketing site url
+    FRONTEND_URL: str = "https://receipt-parser-ai.vercel.app/"
+
     # App
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
     MAX_FILE_SIZE_MB: int = 10

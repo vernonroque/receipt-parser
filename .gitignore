@@ -19,3 +19,4 @@ test_deskew.py
 test_alignment.py
 test_receipts/
 supabase-integration.md
+testing-stripe-checkout.md
