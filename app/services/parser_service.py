@@ -10,7 +10,7 @@ from app.models.schemas import ParsedReceipt
 client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 # _MODEL = "claude-haiku-4-5-20251001"
-_MODEL = "claude-sonnet-4-20250514"
+_MODEL = "claude-sonnet-4-6"
 
 EXTRACTION_PROMPT = """
 You are a receipt and invoice data extraction engine.

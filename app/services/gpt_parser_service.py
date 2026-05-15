@@ -89,7 +89,7 @@ def _extract_json(text: str) -> dict:
 def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg") -> dict:
     """Send one image to Claude and return the raw parsed dict."""
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=1500,
         messages=[
             {
@@ -120,7 +120,7 @@ def parse_single_image(image_bytes: bytes, media_type: str = "image/jpeg") -> di
 def _repair_json(bad_output: str) -> dict:
     """Ask Claude to repair malformed JSON output."""
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=1500,
         messages=[
             {
@@ -141,7 +141,7 @@ def merge_pages(pages_data: List[dict]) -> dict:
         return pages_data[0]
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=2000,
         messages=[
             {
